@@ -6,6 +6,7 @@ plugins {
 dependencies {
     api(gradleApi())
     api(libs.kotlinGradlePlugin)
+    implementation("androidx.tracing:tracing-driver-wire:1.0.0-SNAPSHOT")
 }
 
 gradlePlugin {

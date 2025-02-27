@@ -1,1 +1,1 @@
-A basic example of a Gradle Settings Plugin set up
+An example of Gradle tracing plugin
