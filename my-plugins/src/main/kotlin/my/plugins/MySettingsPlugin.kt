@@ -22,7 +22,13 @@ abstract class MySettingsPlugin : Plugin<Settings> {
             ) { spec ->
                 spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
             }
-        tracingService.get().beginSection("configuration")
+        tracingService.get().beginSection("settingsEvaluation")
+        settings.gradle.settingsEvaluated {
+            tracingService.get().endSection()
+        }
+        settings.gradle.projectsLoaded {
+            tracingService.get().beginSection("configuration")
+        }
         settings.gradle.beforeProject { project ->
             tracingService.get().beginSection(project.path)
             project.tasks.configureEach { task ->
@@ -36,7 +42,7 @@ abstract class MySettingsPlugin : Plugin<Settings> {
                 }
             }
         }
-        settings.gradle.afterProject { project ->
+        settings.gradle.afterProject {
             tracingService.get().endSection()
         }
         settings.gradle.projectsEvaluated {
