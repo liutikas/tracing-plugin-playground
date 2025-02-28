@@ -3,9 +3,8 @@ package my.plugins
 import org.gradle.api.Plugin
 import org.gradle.api.flow.FlowScope
 import org.gradle.api.initialization.Settings
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import javax.inject.Inject
+import java.io.File
 
 @Suppress("unused")
 abstract class MySettingsPlugin : Plugin<Settings> {
@@ -14,20 +13,18 @@ abstract class MySettingsPlugin : Plugin<Settings> {
     abstract val flowScope: FlowScope
 
     override fun apply(settings: Settings) {
-
         @Suppress("UnstableApiUsage") // FlowScope
         flowScope.always(TracingServiceCloseAction::class.java) {}
-
+        val tracingService =
+            settings.gradle.sharedServices.registerIfAbsent(
+                "tracingBuildService",
+                TracingBuildService::class.java
+            ) { spec ->
+                spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
+            }
+        tracingService.get().beginSection("configuration")
         settings.gradle.beforeProject { project ->
-            val tracingService =
-                project.gradle.sharedServices.registerIfAbsent(
-                    "tracingBuildService",
-                    TracingBuildService::class.java
-                ) { spec ->
-                    spec.parameters.traceDir.set(
-                        project.rootProject.isolated.projectDirectory.dir("trace").asFile
-                    )
-                }
+            tracingService.get().beginSection(project.path)
             project.tasks.configureEach { task ->
                 val deps = project.provider { task.taskDependencies.getDependencies(task).map { it.path } }
                 task.doFirst {
@@ -38,6 +35,13 @@ abstract class MySettingsPlugin : Plugin<Settings> {
                     tracingService.get().endSection()
                 }
             }
+        }
+        settings.gradle.afterProject { project ->
+            tracingService.get().endSection()
+        }
+        settings.gradle.projectsEvaluated {
+            tracingService.get().endSection()
+            tracingService.get().driver.context.close()
         }
     }
 }

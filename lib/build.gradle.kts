@@ -17,6 +17,7 @@ java {
 tasks.register<SlowTask>("a")
 
 tasks.register<SlowTask>("b") {
+    Thread.sleep(1000)
     dependsOn("a")
 }
 

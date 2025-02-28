@@ -1,5 +1,6 @@
 package my.plugins
 
+import androidx.tracing.driver.ThreadTrack
 import androidx.tracing.driver.TraceDriver
 import androidx.tracing.driver.wire.WireTraceSink
 import java.util.concurrent.ConcurrentHashMap
@@ -15,6 +16,7 @@ import org.gradle.api.services.ServiceReference
 abstract class TracingBuildService : BuildService<TracingBuildService.Parameters> {
     interface Parameters : BuildServiceParameters {
         val traceDir: DirectoryProperty
+        val driver: Property<TraceDriver>
     }
 
     private val id = AtomicLong(0L)
@@ -28,25 +30,35 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     private val previousFlowIds: ConcurrentHashMap<String, List<Long>> = ConcurrentHashMap()
 
     val driver: TraceDriver by lazy {
+        println("initialize driver")
         val dir = parameters.traceDir.get().asFile
-        dir.deleteRecursively()
+        //dir.deleteRecursively()
         dir.mkdirs()
         TraceDriver(sink = WireTraceSink(sequenceId = 1, directory = dir), isEnabled = true)
+    }
+
+    fun beginSection(sectionName: String) {
+        val processTrack = driver.ProcessTrack(id = 1, name = "Process")
+        val threadTrack = processTrack.getOrCreateThreadTrack(
+            id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
+            name = Thread.currentThread().name
+        )
+        println("beginSection($sectionName) for ${Thread.currentThread().name}")
+        threadTrack.beginSection(sectionName)
     }
 
     fun beginSection(sectionName: String, dependencies: List<String>) {
         flowIdMap[sectionName] = monotonicId()
         val processTrack = driver.ProcessTrack(id = 1, name = "Process")
-        val threadTrack =
-            processTrack.getOrCreateThreadTrack(
-                id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
-                name = Thread.currentThread().name
-            )
+        val threadTrack = processTrack.getOrCreateThreadTrack(
+            id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
+            name = Thread.currentThread().name
+        )
         val flowIds = (dependencies.map {
             flowIdMap[it]!!
         } + dependencies.flatMap { previousFlowIds[it] ?: listOf() }).distinct().sorted()
         previousFlowIds[sectionName] = flowIds
-        println("$sectionName - [${flowIds.joinToString(", ")}]")
+        println("beginSection($sectionName, [${flowIds.joinToString(", ")}])")
         threadTrack.beginSection(sectionName, flowIds)
     }
 
@@ -57,6 +69,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
                 id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
                 name = Thread.currentThread().name
             )
+        println("endSection() for ${Thread.currentThread().name}")
         threadTrack.endSection()
     }
 }
