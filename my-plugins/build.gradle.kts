@@ -1,7 +1,11 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     id("java-gradle-plugin")
+    id("maven-publish")
 }
+
+group = "net.liutikas.tracing"
+version = "0.0.1"
 
 dependencies {
     api(gradleApi())
@@ -12,8 +16,16 @@ dependencies {
 gradlePlugin {
     plugins {
         create("MySettingsPlugin") {
-            id = "MySettingsPlugin"
+            id = "net.liutikas.tracing"
             implementationClass = "my.plugins.MySettingsPlugin"
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            url = uri(layout.buildDirectory.dir("repo"))
         }
     }
 }

@@ -1,6 +1,5 @@
 package my.plugins
 
-import androidx.tracing.driver.ThreadTrack
 import androidx.tracing.driver.TraceDriver
 import androidx.tracing.driver.wire.WireTraceSink
 import java.util.concurrent.ConcurrentHashMap
@@ -12,10 +11,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.services.ServiceReference
-import org.gradle.internal.service.scopes.ServiceScope
-import org.gradle.internal.service.scopes.Scope
 
-@ServiceScope(Scope.Global::class)
 abstract class TracingBuildService : BuildService<TracingBuildService.Parameters> {
     interface Parameters : BuildServiceParameters {
         val traceDir: DirectoryProperty

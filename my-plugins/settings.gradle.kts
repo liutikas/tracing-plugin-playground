@@ -12,3 +12,5 @@ dependencyResolutionManagement {
         }
     }
 }
+
+rootProject.name = "tracing-gradle-plugin"
