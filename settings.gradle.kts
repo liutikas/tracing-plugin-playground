@@ -11,7 +11,7 @@ pluginManagement {
 }
 
 plugins {
-    id("MySettingsPlugin")
+    id("net.liutikas.tracing")
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
