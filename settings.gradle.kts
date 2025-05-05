@@ -4,7 +4,7 @@ pluginManagement {
         mavenCentral()
         google()
         maven {
-            url = uri("https://androidx.dev/snapshots/builds/13393299/artifacts/repository")
+            url = uri("https://androidx.dev/snapshots/builds/13449038/artifacts/repository")
         }
         gradlePluginPortal()
     }
@@ -22,5 +22,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "smallest-settings-plugin"
-include("lib")
-
+include("libA")

@@ -3,7 +3,7 @@ dependencyResolutionManagement {
         mavenCentral()
         google()
         maven {
-            url = uri("https://androidx.dev/snapshots/builds/13393299/artifacts/repository")
+            url = uri("https://androidx.dev/snapshots/builds/13449038/artifacts/repository")
         }
     }
     versionCatalogs {

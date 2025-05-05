@@ -15,39 +15,25 @@ abstract class MySettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
         @Suppress("UnstableApiUsage") // FlowScope
         flowScope.always(TracingServiceCloseAction::class.java) {}
-        val tracingService =
-            settings.gradle.sharedServices.registerIfAbsent(
-                "tracingBuildService",
-                TracingBuildService::class.java
-            ) { spec ->
-                spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
-            }
-        tracingService.get().beginSection("settingsEvaluation")
-        settings.gradle.settingsEvaluated {
-            tracingService.get().endSection()
-        }
-        settings.gradle.projectsLoaded {
-            tracingService.get().beginSection("configuration")
-        }
+
         settings.gradle.beforeProject { project ->
-            tracingService.get().beginSection(project.path)
+            val tracingService =
+                settings.gradle.sharedServices.registerIfAbsent(
+                    "tracingBuildService",
+                    TracingBuildService::class.java
+                ) { spec ->
+                    spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
+                }
             project.tasks.configureEach { task ->
                 val deps = project.provider { task.taskDependencies.getDependencies(task).map { it.path } }
                 task.doFirst {
                     val flowIds = (deps.get() + task.path)
-                    tracingService.get().beginSection(task.path, flowIds)
+                    tracingService.get().beginSection(task.path)
                 }
                 task.doLast {
                     tracingService.get().endSection()
                 }
             }
-        }
-        settings.gradle.afterProject {
-            tracingService.get().endSection()
-        }
-        settings.gradle.projectsEvaluated {
-            tracingService.get().endSection()
-            tracingService.get().driver.context.close()
         }
     }
 }

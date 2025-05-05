@@ -43,3 +43,5 @@ abstract class SlowTask: DefaultTask() {
         Thread.sleep(500)
     }
 }
+
+Thread.sleep(1000)

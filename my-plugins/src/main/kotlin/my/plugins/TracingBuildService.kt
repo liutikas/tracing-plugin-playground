@@ -31,7 +31,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     val driver: TraceDriver by lazy {
         println("initialize driver")
         val dir = parameters.traceDir.get().asFile
-        //dir.deleteRecursively()
+        dir.deleteRecursively()
         dir.mkdirs()
         TraceDriver(sink = WireTraceSink(sequenceId = 1, directory = dir), isEnabled = true)
     }
@@ -84,6 +84,7 @@ abstract class TracingServiceCloseAction : FlowAction<TracingServiceCloseActionP
     override fun execute(parameters: TracingServiceCloseActionParameters) {
         println("build finished")
         if (parameters.traceBuildService.isPresent) {
+            println("build finished - closing")
             parameters.traceBuildService.get().driver.context.close()
         }
     }
