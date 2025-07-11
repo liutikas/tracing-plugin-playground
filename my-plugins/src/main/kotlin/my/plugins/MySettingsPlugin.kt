@@ -15,15 +15,22 @@ abstract class MySettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
         @Suppress("UnstableApiUsage") // FlowScope
         flowScope.always(TracingServiceCloseAction::class.java) {}
-
+        val tracingService =
+            settings.gradle.sharedServices.registerIfAbsent(
+                "tracingBuildService",
+                TracingBuildService::class.java
+            ) { spec ->
+                spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
+            }
+        tracingService.get().beginSection("settingsEvaluation")
+        settings.gradle.settingsEvaluated {
+            tracingService.get().endSection()
+        }
+        settings.gradle.projectsLoaded {
+            tracingService.get().beginSection("configuration")
+        }
         settings.gradle.beforeProject { project ->
-            val tracingService =
-                settings.gradle.sharedServices.registerIfAbsent(
-                    "tracingBuildService",
-                    TracingBuildService::class.java
-                ) { spec ->
-                    spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
-                }
+            tracingService.get().beginSection(project.path)
             project.tasks.configureEach { task ->
                 val deps = project.provider { task.taskDependencies.getDependencies(task).map { it.path } }
                 task.doFirst {
@@ -34,6 +41,9 @@ abstract class MySettingsPlugin : Plugin<Settings> {
                     tracingService.get().endSection()
                 }
             }
+        }
+        settings.gradle.afterProject {
+            tracingService.get().endSection()
         }
     }
 }
