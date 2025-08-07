@@ -4,7 +4,7 @@ pluginManagement {
         mavenCentral()
         google()
         maven {
-            url = uri("https://androidx.dev/snapshots/builds/13768719/artifacts/repository")
+            url = uri("https://androidx.dev/snapshots/builds/13899409/artifacts/repository")
         }
         gradlePluginPortal()
     }
@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "tracing-plugin-playground"
 include("libA")
+include("libB")

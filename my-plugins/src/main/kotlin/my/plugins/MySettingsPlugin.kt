@@ -5,6 +5,8 @@ import org.gradle.api.flow.FlowScope
 import org.gradle.api.initialization.Settings
 import javax.inject.Inject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Suppress("unused")
 abstract class MySettingsPlugin : Plugin<Settings> {
@@ -13,6 +15,10 @@ abstract class MySettingsPlugin : Plugin<Settings> {
     abstract val flowScope: FlowScope
 
     override fun apply(settings: Settings) {
+        val formatter = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault())
+        formatter.timeZone = TimeZone.getTimeZone("UTC")
+        val subdirectory = formatter.format(Date())
+
         @Suppress("UnstableApiUsage") // FlowScope
         flowScope.always(TracingServiceCloseAction::class.java) {}
         val tracingService =
@@ -20,8 +26,9 @@ abstract class MySettingsPlugin : Plugin<Settings> {
                 "tracingBuildService",
                 TracingBuildService::class.java
             ) { spec ->
-                spec.parameters.traceDir.set(File(settings.rootDir, "trace"))
+                spec.parameters.traceDir.set(File(settings.rootDir, "trace/$subdirectory"))
             }
+
         tracingService.get().beginSection("settingsEvaluation")
         settings.gradle.settingsEvaluated {
             tracingService.get().endSection()
@@ -29,6 +36,7 @@ abstract class MySettingsPlugin : Plugin<Settings> {
         settings.gradle.projectsLoaded {
             tracingService.get().beginSection("configuration")
         }
+
         settings.gradle.beforeProject { project ->
             tracingService.get().beginSection(project.path)
             project.tasks.configureEach { task ->
@@ -42,6 +50,13 @@ abstract class MySettingsPlugin : Plugin<Settings> {
                 }
             }
         }
+
+        settings.gradle.projectsEvaluated {
+            tracingService.get().endSection()
+            tracingService.get().driver?.context?.close()
+            tracingService.get().driver = null
+        }
+
         settings.gradle.afterProject {
             tracingService.get().endSection()
         }

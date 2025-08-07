@@ -1,7 +1,11 @@
 package my.plugins
 
 import androidx.tracing.driver.TraceDriver
-import androidx.tracing.driver.wire.WireTraceSink
+import androidx.tracing.driver.wire.TraceSink
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import org.gradle.api.file.DirectoryProperty
@@ -11,8 +15,12 @@ import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.services.ServiceReference
+import java.io.File
 
 abstract class TracingBuildService : BuildService<TracingBuildService.Parameters> {
+    init {
+        println("new tracing build service")
+    }
     interface Parameters : BuildServiceParameters {
         val traceDir: DirectoryProperty
         val driver: Property<TraceDriver>
@@ -28,16 +36,26 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     private val flowIdMap: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
     private val previousFlowIds: ConcurrentHashMap<String, List<Long>> = ConcurrentHashMap()
 
-    val driver: TraceDriver by lazy {
+    var driver: TraceDriver? = null
+
+    public fun getOrCreateDriver(): TraceDriver {
+        if (driver == null) {
+            driver = newDriver()
+        }
+        return driver!!
+    }
+
+    private fun newDriver(): TraceDriver {
         println("initialize driver")
         val dir = parameters.traceDir.get().asFile
-        dir.deleteRecursively()
         dir.mkdirs()
-        TraceDriver(sink = WireTraceSink(sequenceId = 1, directory = dir), isEnabled = true)
+        return TraceDriver(sink =
+            TraceSink(sequenceId = 1, directory = dir), isEnabled = true
+        )
     }
 
     fun beginSection(sectionName: String) {
-        val processTrack = driver.ProcessTrack(id = 1, name = "Process")
+        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
         val threadTrack = processTrack.getOrCreateThreadTrack(
             id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
             name = Thread.currentThread().name
@@ -48,7 +66,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
 
     fun beginSection(sectionName: String, dependencies: List<String>) {
         flowIdMap[sectionName] = monotonicId()
-        val processTrack = driver.ProcessTrack(id = 1, name = "Process")
+        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
         val threadTrack = processTrack.getOrCreateThreadTrack(
             id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
             name = Thread.currentThread().name
@@ -62,7 +80,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     }
 
     fun endSection() {
-        val processTrack = driver.ProcessTrack(id = 1, name = "Process")
+        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
         val threadTrack =
             processTrack.getOrCreateThreadTrack(
                 id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
@@ -85,7 +103,28 @@ abstract class TracingServiceCloseAction : FlowAction<TracingServiceCloseActionP
         println("build finished")
         if (parameters.traceBuildService.isPresent) {
             println("build finished - closing")
-            parameters.traceBuildService.get().driver.context.close()
+            parameters.traceBuildService.get().driver?.context?.close()
+            parameters.traceBuildService.get().driver = null
+
+            val traceDir = parameters.traceBuildService.get().parameters.traceDir.get().asFile
+            createZipFile(
+                traceDir.listFiles() ?: emptyArray(),
+                File(traceDir, "merged.zip")
+            )
         }
     }
+}
+
+private fun createZipFile(files: Array<File>, outputZipFile: File): File {
+    ZipOutputStream(FileOutputStream(outputZipFile)).use { zipOut ->
+        files.forEach { file ->
+            FileInputStream(file).use { fis ->
+                val zipEntry = ZipEntry(file.name)
+                zipOut.putNextEntry(zipEntry)
+                fis.copyTo(zipOut)
+                zipOut.closeEntry()
+            }
+        }
+    }
+    return outputZipFile
 }
