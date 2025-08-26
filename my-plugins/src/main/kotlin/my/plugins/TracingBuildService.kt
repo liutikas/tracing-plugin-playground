@@ -19,7 +19,7 @@ import java.io.File
 
 abstract class TracingBuildService : BuildService<TracingBuildService.Parameters> {
     init {
-        println("new tracing build service")
+        log("new tracing build service")
     }
     interface Parameters : BuildServiceParameters {
         val traceDir: DirectoryProperty
@@ -46,7 +46,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     }
 
     private fun newDriver(): TraceDriver {
-        println("initialize driver")
+        log("initialize driver")
         val dir = parameters.traceDir.get().asFile
         dir.mkdirs()
         return TraceDriver(sink =
@@ -60,7 +60,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
             id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
             name = Thread.currentThread().name
         )
-        println("beginSection($sectionName) for ${Thread.currentThread().name}")
+        log("beginSection($sectionName) for ${Thread.currentThread().name}")
         threadTrack.beginSection(sectionName)
     }
 
@@ -75,7 +75,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
             flowIdMap[it]!!
         } + dependencies.flatMap { previousFlowIds[it] ?: listOf() }).distinct().sorted()
         previousFlowIds[sectionName] = flowIds
-        println("beginSection($sectionName, [${flowIds.joinToString(", ")}])")
+        log("beginSection($sectionName, [${flowIds.joinToString(", ")}])")
         threadTrack.beginSection(sectionName, flowIds)
     }
 
@@ -86,7 +86,7 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
                 id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
                 name = Thread.currentThread().name
             )
-        println("endSection() for ${Thread.currentThread().name}")
+        log("endSection() for ${Thread.currentThread().name}")
         threadTrack.endSection()
     }
 }
@@ -100,9 +100,9 @@ abstract class TracingServiceCloseActionParameters : FlowParameters {
 @Suppress("UnstableApiUsage") // FlowAction
 abstract class TracingServiceCloseAction : FlowAction<TracingServiceCloseActionParameters> {
     override fun execute(parameters: TracingServiceCloseActionParameters) {
-        println("build finished")
+        log("build finished")
         if (parameters.traceBuildService.isPresent) {
-            println("build finished - closing")
+            log("build finished - closing")
             parameters.traceBuildService.get().driver?.context?.close()
             parameters.traceBuildService.get().driver = null
 
@@ -128,3 +128,9 @@ private fun createZipFile(files: Array<File>, outputZipFile: File): File {
     }
     return outputZipFile
 }
+
+private fun log(text: String) {
+    if (VERBOSE_LOG) println(text)
+}
+
+private const val VERBOSE_LOG = false
