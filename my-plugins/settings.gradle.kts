@@ -1,9 +1,12 @@
 dependencyResolutionManagement {
+    val properties = java.util.Properties()
+    properties.load(file("../gradle.properties").inputStream())
+
     repositories {
         mavenCentral()
         google()
         maven {
-            url = uri("https://androidx.dev/snapshots/builds/13899409/artifacts/repository")
+            url = uri("https://androidx.dev/snapshots/builds/${properties["snapshotBuildId"]}/artifacts/repository")
         }
     }
     versionCatalogs {
