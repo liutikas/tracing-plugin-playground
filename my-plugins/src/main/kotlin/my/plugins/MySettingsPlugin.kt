@@ -53,7 +53,7 @@ abstract class MySettingsPlugin : Plugin<Settings> {
 
         settings.gradle.projectsEvaluated {
             tracingService.get().endSection()
-            tracingService.get().driver?.context?.close()
+            tracingService.get().driver?.flush()
             tracingService.get().driver = null
         }
 

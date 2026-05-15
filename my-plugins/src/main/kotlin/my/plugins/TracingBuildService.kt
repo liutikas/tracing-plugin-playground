@@ -1,7 +1,7 @@
 package my.plugins
 
-import androidx.tracing.driver.TraceDriver
-import androidx.tracing.driver.wire.TraceSink
+import androidx.tracing.wire.TraceDriver
+import androidx.tracing.wire.TraceSink
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import java.io.FileInputStream
@@ -26,19 +26,9 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
         val driver: Property<TraceDriver>
     }
 
-    private val id = AtomicLong(0L)
-
-    /** Generates a monotonically increasing [Long] value. */
-    private fun monotonicId(): Long {
-        return id.incrementAndGet()
-    }
-
-    private val flowIdMap: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
-    private val previousFlowIds: ConcurrentHashMap<String, List<Long>> = ConcurrentHashMap()
-
     var driver: TraceDriver? = null
 
-    public fun getOrCreateDriver(): TraceDriver {
+    private fun getOrCreateDriver(): TraceDriver {
         if (driver == null) {
             driver = newDriver()
         }
@@ -46,48 +36,23 @@ abstract class TracingBuildService : BuildService<TracingBuildService.Parameters
     }
 
     private fun newDriver(): TraceDriver {
-        log("initialize driver")
         val dir = parameters.traceDir.get().asFile
+        log("initialize driver in ${dir.absolutePath}")
         dir.mkdirs()
         return TraceDriver(sink =
-            TraceSink(sequenceId = 1, directory = dir), isEnabled = true
+            TraceSink(sequenceId = 1, directory = dir)
         )
     }
 
     fun beginSection(sectionName: String) {
-        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
-        val threadTrack = processTrack.getOrCreateThreadTrack(
-            id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
-            name = Thread.currentThread().name
-        )
-        log("beginSection($sectionName) for ${Thread.currentThread().name}")
-        threadTrack.beginSection(sectionName)
-    }
-
-    fun beginSection(sectionName: String, dependencies: List<String>) {
-        flowIdMap[sectionName] = monotonicId()
-        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
-        val threadTrack = processTrack.getOrCreateThreadTrack(
-            id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
-            name = Thread.currentThread().name
-        )
-        val flowIds = (dependencies.map {
-            flowIdMap[it]!!
-        } + dependencies.flatMap { previousFlowIds[it] ?: listOf() }).distinct().sorted()
-        previousFlowIds[sectionName] = flowIds
-        log("beginSection($sectionName, [${flowIds.joinToString(", ")}])")
-        threadTrack.beginSection(sectionName, flowIds)
+        val tracer = getOrCreateDriver().tracer
+        log("beginSection($sectionName)")
+        tracer.beginSection("main", sectionName, null, false, { })
     }
 
     fun endSection() {
-        val processTrack = getOrCreateDriver().ProcessTrack(id = 1, name = "Process")
-        val threadTrack =
-            processTrack.getOrCreateThreadTrack(
-                id = @Suppress("DEPRECATION") Thread.currentThread().id.toInt(),
-                name = Thread.currentThread().name
-            )
-        log("endSection() for ${Thread.currentThread().name}")
-        threadTrack.endSection()
+        getOrCreateDriver().context.process.currentThreadTrack().endSection()
+        log("endSection()")
     }
 }
 
@@ -103,7 +68,7 @@ abstract class TracingServiceCloseAction : FlowAction<TracingServiceCloseActionP
         log("build finished")
         if (parameters.traceBuildService.isPresent) {
             log("build finished - closing")
-            parameters.traceBuildService.get().driver?.context?.close()
+            parameters.traceBuildService.get().driver?.flush()
             parameters.traceBuildService.get().driver = null
 
             val traceDir = parameters.traceBuildService.get().parameters.traceDir.get().asFile
@@ -133,4 +98,4 @@ private fun log(text: String) {
     if (VERBOSE_LOG) println(text)
 }
 
-private const val VERBOSE_LOG = false
+private const val VERBOSE_LOG = true

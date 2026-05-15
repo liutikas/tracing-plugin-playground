@@ -9,7 +9,8 @@ version = "0.0.1"
 
 dependencies {
     api(gradleApi())
-    implementation("androidx.tracing:tracing-driver-wire:1.0.0-SNAPSHOT")
+    implementation("androidx.tracing:tracing:2.0.0-alpha07")
+    implementation("androidx.tracing:tracing-wire:2.0.0-alpha07")
 }
 
 gradlePlugin {
